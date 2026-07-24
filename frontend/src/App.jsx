@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Database,
   Loader2,
+  Palette,
   RefreshCw,
   RotateCcw,
   Send,
@@ -13,6 +14,32 @@ import {
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8787";
+const THEME_STORAGE_KEY = "philosophy-rag-theme";
+
+const THEME_OPTIONS = [
+  {
+    id: "blue-study",
+    name: "Blue Study",
+    colors: ["#8EB3E5", "#7C99B4", "#6B7F82", "#5B5750", "#492C1D"],
+  },
+  {
+    id: "blue-nocturne",
+    name: "Blue Nocturne",
+    colors: ["#8EB3E5", "#7C99B4", "#6B7F82", "#5B5750", "#492C1D"],
+  },
+  {
+    id: "rose-garden",
+    name: "Rose Garden",
+    colors: ["#FFC4EB", "#FFE4FA", "#F1DEDC", "#E1DABD", "#ABC798"],
+  },
+  {
+    id: "sage-archive",
+    name: "Sage Archive",
+    colors: ["#CAD2C5", "#84A98C", "#52796F", "#354F52", "#2F3E46"],
+  },
+];
+
+const DEFAULT_THEME_ID = THEME_OPTIONS[0].id;
 
 function App() {
   const [status, setStatus] = useState(null);
@@ -21,11 +48,21 @@ function App() {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
+  const [themeId, setThemeId] = useState(loadInitialTheme);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     refreshStatus();
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeId;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
+    } catch {
+      // Theme persistence is a convenience; the app works without storage access.
+    }
+  }, [themeId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -183,6 +220,8 @@ function App() {
           </div>
         </div>
 
+        <ThemeSelector themeId={themeId} onThemeChange={setThemeId} />
+
         <section className="status-panel" aria-label="System status">
           <StatusRow
             icon={<Server size={17} />}
@@ -291,6 +330,36 @@ function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+function ThemeSelector({ themeId, onThemeChange }) {
+  const theme = THEME_OPTIONS.find((option) => option.id === themeId) ?? THEME_OPTIONS[0];
+
+  return (
+    <section className="theme-panel" aria-label="Theme">
+      <label className="theme-label" htmlFor="theme-select">
+        <Palette size={17} aria-hidden="true" />
+        <span>Theme</span>
+      </label>
+      <select
+        id="theme-select"
+        className="theme-select"
+        value={theme.id}
+        onChange={(event) => onThemeChange(event.target.value)}
+      >
+        {THEME_OPTIONS.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      <div className="theme-swatches" aria-hidden="true">
+        {theme.colors.map((color) => (
+          <span className="theme-swatch" key={color} style={{ backgroundColor: color }} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -425,6 +494,23 @@ function labelForRole(role) {
     return "System";
   }
   return "You";
+}
+
+function loadInitialTheme() {
+  if (typeof window === "undefined") {
+    return DEFAULT_THEME_ID;
+  }
+
+  try {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (THEME_OPTIONS.some((option) => option.id === savedTheme)) {
+      return savedTheme;
+    }
+  } catch {
+    return DEFAULT_THEME_ID;
+  }
+
+  return DEFAULT_THEME_ID;
 }
 
 async function apiGet(path) {
